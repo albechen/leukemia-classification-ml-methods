@@ -1,0 +1,135 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+## Libraries
+
+```{r}
+library(caret)
+library(pROC)
+```
+
+## Functions
+
+```{r}
+graph_probability <- function(model, data, comp, test_train){
+  predicted <- data.frame(
+    probability = predict(model, newdata = data[4:(comp+3)], "prob")[,1],
+    cancer=data$cancer
+  )
+
+  predicted <- predicted[
+    order(predicted$probability, decreasing=FALSE),]
+  predicted$rank <- 1:nrow(predicted)
+  
+  if (test_train == "test") {
+    ggplot(data=predicted, aes(x=rank, y=probability)) +
+      geom_point(aes(color=cancer), alpha=1, shape=4, stroke=2) +
+      xlab("Index") +
+      ylab("Predicted Probability") +
+      ggtitle("Predicted Probability of ALL vs. AML (Test Data)")
+  }
+  
+  else {
+    ggplot(data=predicted, aes(x=rank, y=probability)) +
+      geom_point(aes(color=cancer), alpha=1, shape=4, stroke=2) +
+      xlab("Index") +
+      ylab("Predicted Probability") +
+      ggtitle("Predicted Probability of ALL vs. AML (Train Data)")
+  }
+}
+
+cross_val_model <- function(train, method, num_cv, folds, comp) {
+  set.seed(1)
+  cv_model <- train(
+    x = train[4:(comp+3)],
+    y = train$cancer,
+    method = method,
+    metric = "Accuracy",
+    trControl = trainControl(method="repeatedcv",
+                             number = num_cv,
+                             repeats = folds),
+  )
+  return (cv_model)
+}
+
+conf_matrix <- function(test, cv_model, comp) {
+  confusionMatrix(reference = as.factor(test$cancer), data = as.factor(predict(cv_model, test[4:(comp+3)])))
+}
+
+roc_plot <- function(test, model, comp) {
+  par(pty="s")
+  roc(test$cancer, predict(model, test[4:(comp+3)], type="prob")[,1], plot=TRUE, legacy.axes=TRUE)
+} 
+```
+
+## Setting Defaults
+```{r}
+method <- "glm"
+comp <- 20
+num_cv <- 3
+folds <- 5
+```
+
+
+## Numerical Data
+
+```{r}
+#import numerical pca and split test / train data
+test <- read.csv("data/processed/num_test.csv", row.names = 1)
+train <- read.csv("data/processed/num_train.csv", row.names = 1)
+
+model <- cross_val_model(train, method, num_cv, folds, comp)
+model
+```
+
+
+```{r}
+#confusion matrix of model
+conf_matrix(test, model, comp)
+```
+
+```{r}
+#graphing training probabilites
+graph_probability(model, train, comp, "train")
+
+#graphing testing probabilities
+graph_probability(model, test, comp, "test")
+```
+
+```{r}
+#plotting ROC
+roc_plot(test, model, comp)
+```
+
+## Catagorical Data
+
+```{r}
+#import numerical pca and split test / train data
+test <- read.csv("data/processed/cat_test.csv", row.names = 1)
+train <- read.csv("data/processed/cat_train.csv", row.names = 1)
+
+model <- cross_val_model(train, method, num_cv, folds, comp)
+model
+```
+
+
+```{r}
+#confusion matrix of model
+conf_matrix(test, model, comp)
+```
+
+```{r}
+#graphing training probabilites
+graph_probability(model, train, comp, "train")
+
+#graphing testing probabilities
+graph_probability(model, test, comp, "test")
+```
+
+```{r}
+#plotting ROC
+roc_plot(test, model, comp)
+```
+
