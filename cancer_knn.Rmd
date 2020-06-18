@@ -1,6 +1,8 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "Untitled"
+author: "Albert Chen"
+date: "6/16/2020"
+output: pdf_document
 ---
 
 ## Libraries
@@ -46,7 +48,6 @@ cross_val_model <- function(train, method, num_cv, folds, comp) {
     x = train[4:(comp+3)],
     y = train$cancer,
     method = method,
-    tuneGrid   = expand.grid(k = 1:10),
     metric = "Accuracy",
     trControl = trainControl(method="repeatedcv",
                              number = num_cv,
@@ -56,7 +57,7 @@ cross_val_model <- function(train, method, num_cv, folds, comp) {
 }
 
 conf_matrix <- function(test, cv_model, comp) {
-  confusionMatrix(reference = as.factor(test$cancer), data = as.factor(predict(cv_model, test[4:(comp+3)])))
+  return (confusionMatrix(reference = as.factor(test$cancer), data = as.factor(predict(cv_model, test[4:(comp+3)]))))
 }
 
 roc_plot <- function(test, model, comp) {
@@ -74,12 +75,12 @@ folds <- 5
 ```
 
 
-## Numerical Data
+## PCA - Numerical Data
 
 ```{r}
 #import numerical pca and split test / train data
-test <- read.csv("data/processed/num_test.csv", row.names = 1)
-train <- read.csv("data/processed/num_train.csv", row.names = 1)
+test <- read.csv("data/processed/pca_num_test.csv", row.names = 1)
+train <- read.csv("data/processed/pca_num_train.csv", row.names = 1)
 
 model <- cross_val_model(train, method, num_cv, folds, comp)
 model
@@ -104,12 +105,72 @@ graph_probability(model, test, comp, "test")
 roc_plot(test, model, comp)
 ```
 
-## Catagorical Data
+## PCA - Catagorical Data
 
 ```{r}
 #import numerical pca and split test / train data
-test <- read.csv("data/processed/cat_test.csv", row.names = 1)
-train <- read.csv("data/processed/cat_train.csv", row.names = 1)
+test <- read.csv("data/processed/pca_cat_test.csv", row.names = 1)
+train <- read.csv("data/processed/pca_cat_train.csv", row.names = 1)
+
+model <- cross_val_model(train, method, num_cv, folds, comp)
+model
+```
+
+
+```{r}
+#confusion matrix of model
+conf_matrix(test, model, comp)
+```
+
+```{r}
+#graphing training probabilites
+graph_probability(model, train, comp, "train")
+
+#graphing testing probabilities
+graph_probability(model, test, comp, "test")
+```
+
+```{r}
+#plotting ROC
+roc_plot(test, model, comp)
+```
+
+## Correlation - Numerical Data
+
+```{r}
+#import numerical pca and split test / train data
+test <- read.csv("data/processed/cor_num_test.csv", row.names = 1)
+train <- read.csv("data/processed/cor_num_train.csv", row.names = 1)
+
+model <- cross_val_model(train, method, num_cv, folds, comp)
+model
+```
+
+
+```{r}
+#confusion matrix of model
+conf_matrix(test, model, comp)
+```
+
+```{r}
+#graphing training probabilites
+graph_probability(model, train, comp, "train")
+
+#graphing testing probabilities
+graph_probability(model, test, comp, "test")
+```
+
+```{r}
+#plotting ROC
+roc_plot(test, model, comp)
+```
+
+## Correlation - Catagorical Data
+
+```{r}
+#import numerical pca and split test / train data
+test <- read.csv("data/processed/cor_cat_test.csv", row.names = 1)
+train <- read.csv("data/processed/cor_cat_train.csv", row.names = 1)
 
 model <- cross_val_model(train, method, num_cv, folds, comp)
 model

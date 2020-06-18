@@ -1,6 +1,8 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "1-data_collection"
+author: "Albert Chen"
+date: "6/16/2020"
+output: pdf_document
 ---
 
 ```{r}
@@ -26,19 +28,21 @@ seperate_cat_num_readouts <- function(raw_df){
 
 combine_data_with_class <- function(data, class, num_cat) {
   #remap ordinal catagorical values to numerical
-
   
   data$patient <- row.names(data)
   data$patient <- substring(data$patient, 2)
   data$patient <- sapply(data$patient, as.numeric)
   data <- data[order(data$patient),]
   
-  data[data == "A"] <- -1 #A - absent
-  data[data == "M"] <- 0 #M - marginal
-  data[data == "P"] <- 1 #P - present
-  data <- lapply(data, function(x) as.numeric(as.character(x)))
-  data <- as.data.frame(data)
-  
+  #cat_cat keeps A, M, P if needed for future
+  if (num_cat != "cat_cat") {
+    data[data == "A"] <- -1 #A - absent
+    data[data == "M"] <- 0 #M - marginal
+    data[data == "P"] <- 1 #P - present
+    data <- lapply(data, function(x) as.numeric(as.character(x)))
+    data <- as.data.frame(data)
+  }
+
   combined <- merge(class, data, by="patient")
   
   return(combined)
@@ -58,10 +62,12 @@ extract_test_or_train_data <- function(data, class, type) {
   #combine class with num or cat data
   num_comb <- combine_data_with_class(num, class, "num")
   cat_comb <- combine_data_with_class(cat, class, "cat")
+  cat_cat_comb <- combine_data_with_class(cat, class, "cat_cat")
   
   write.csv(gene,"data/interim/gene.csv")
   write.csv(num_comb, paste("data/interim/num_", type, ".csv", sep=''))
   write.csv(cat_comb, paste("data/interim/cat_", type, ".csv", sep=''))
+  write.csv(cat_cat_comb, paste("data/interim/cat_cat_", type, ".csv", sep=''))
   
   return(list(gene, num_comb, cat_comb))
 }

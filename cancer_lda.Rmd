@@ -68,7 +68,7 @@ roc_plot <- function(test, model, comp) {
 
 ## Setting Defaults
 ```{r}
-method <- "rf"
+method <- "lda"
 comp <- 20
 num_cv <- 3
 folds <- 5

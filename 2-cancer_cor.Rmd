@@ -1,0 +1,199 @@
+---
+title: "Untitled"
+author: "Albert Chen"
+date: "6/16/2020"
+output: pdf_document
+---
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+```
+
+
+```{r}
+#intial data
+gene <- read.csv("data/interim/gene.csv", row.names = 1)
+num_train <- read.csv("data/interim/num_train.csv", row.names = 1)
+cat_train <- read.csv("data/interim/cat_train.csv", row.names = 1)
+num_test <- read.csv("data/interim/num_test.csv", row.names = 1)
+cat_test <- read.csv("data/interim/cat_test.csv", row.names = 1)
+cat_cat_train <- read.csv("data/interim/cat_cat_train.csv", row.names = 1)
+```
+
+
+```{r}
+#function to derive correlation matrix
+correlation_matrix <- function(gene, num_train, cat_train) {
+  cor_summary <- gene
+  
+  #get numerical correlation for each gene
+  cor_summary$num_cor <- cor(num_train[3:(ncol(num_train))])[1,][-1]
+  cor_summary$a_num_cor <- abs(cor_summary$num_cor)
+  
+  #get cat correlation for each gene
+  cor_summary$cat_cor <- cor(cat_train[3:(ncol(cat_train))])[1,][-1]
+  cor_summary$a_cat_cor <- abs(cor_summary$cat_cor)
+  
+  #determine which genes best correlation of both cat and numerical data
+  cor_summary$tot_cor <- abs(cor_summary$num_cor) + abs(cor_summary$cat_cor)
+  cor_summary <- cor_summary[order(-cor_summary$tot_cor),]
+  
+  write.csv(cor_summary, "data/processed/correlation_summary.csv")
+  return (cor_summary)
+}
+
+#test corrrelation matrix function
+cor_summary <- correlation_matrix(gene, num_train, cat_train)
+head(cor_summary)
+```
+
+
+```{r}
+#function to correlation of numerical data
+num_cor_plot <- function(num_train, cor_summary, num_genes) {
+  df <- data.frame()
+  
+  #cycle through top genes from correlation summary
+  for (i in seq(1, num_genes)) {
+    gene <- cor_summary$index[i]
+    temp <- data.frame(cancer = num_train$cancer)
+    
+    #check if it's a positive or negative correlation and apply similar relationship
+    #also scaling data for all genes
+    if (cor_summary$num_cor[i] >= 0) {
+      temp$num <- scale(num_train[gene+3] * -1)
+    } 
+    else {
+      temp$num <- scale(num_train[gene+3])
+    } 
+    
+    #order and rank per gene
+    temp$gene <- gene
+    temp <- temp[order(temp[2]),]
+    temp$rank <- seq(1, nrow(temp))
+    
+    #combine with all genes to create long form df for ggplot
+    rownames(temp) <- seq(40000:(nrow(temp)+40000-1))
+    df <- rbind(df, temp)
+    rownames(df) <- seq(1:(nrow(df)))
+  }
+  
+  #plotting through ggplot
+  cor_plot <- ggplot(df, aes(x=rank, y=num, color=cancer)) + 
+    geom_point() +
+    xlab("Rank") +
+    ylab("Scaled Value") +
+    ggtitle("Rank of Each Sample vs. Scaled Numerical Gene Value", 
+            subtitle = "Comparing Top 100 Correlated Genes with Leukemia Classes")
+  ggsave(path = "images/reduction/",
+       filename = "num_cor.png",
+       plot = cor_plot,
+       dpi = 300, 
+       width = 8,
+       height = 5,
+       units = "in"
+  )
+  return (cor_plot)
+}
+
+num_cor_plot(num_train, cor_summary, 100)
+```
+
+```{r}
+#catagorical data plot correlated genes
+cat_cor_plot <- function(cat_train, cor_summary, num_genes) {
+  df <- data.frame()
+  #make sure catagorical data factors
+  cat_train[,c(4:ncol(cat_train))] <- lapply(cat_train[,c(4:ncol(cat_train))], factor)
+  count_matrix <- data.frame()
+  
+  #cycle through top genes according to correlation summary
+  for (i in seq(1, num_genes)) {
+    gene <- cor_summary$index[i]
+    temp <- data.frame(cancer = cat_train$cancer)
+    temp$Status <- cat_train[[gene+3]]
+    
+    #dummy lists to store var
+    cancer_list <- c()
+    status_list <- c()
+    count_list <- c()
+    
+    #cycle through all possible combinations of status and class to count
+    for (status in list("P", "A", "M")){
+      for (cancer in list("ALL", "AML")) {
+        count <- length(which(temp$Status == status & temp$cancer == cancer))
+        cancer_list <- c(cancer_list, cancer)
+        status_list <- c(status_list, status)
+        count_list <- c(count_list, count)
+      }
+    }
+    
+    # create df
+    temp_matrix <- data.frame(Cancer = cancer_list,
+                              Status = status_list,
+                              Count = count_list)
+    
+    #check if positve or negative correlation and mark
+    if (cor_summary$num_cor[i] >= 0) {
+      temp_matrix$pos_neg <- "Positive Correlation"
+    } 
+    else {
+      temp_matrix$pos_neg <- "Negative Correlation"
+    }
+    
+    #add extra info and combine all
+    temp_matrix$gene <- gene
+    temp_matrix$`Percent Count` <- temp_matrix$Count / nrow(cat_train)
+    count_matrix <- rbind(count_matrix, temp_matrix)
+  }
+  
+  #plot difference
+  cor_plot <- ggplot(count_matrix, aes(x=Status, y=`Percent Count`, group=Status)) + 
+    geom_boxplot(aes(fill=Status)) +
+    facet_grid(pos_neg ~ Cancer) +
+    ggtitle("Percent of Samples vs. Gene's Catagorical Status", 
+            subtitle = "Comparing Top 100 Correlated Genes with Leukemia Classes")
+  ggsave(path = "images/reduction/",
+     filename =  "cat_cor.png",
+     plot = cor_plot,
+     dpi = 300, 
+     width = 8,
+     height = 5,
+     units = "in"
+  )
+  return (cor_plot)
+}
+
+cat_cor_plot(cat_cat_train, cor_summary, 100)
+```
+
+## Export Highest Correlation Genes
+
+```{r}
+#function to correlation of catagorical and numerical data
+org_highest_corr_var <- function(train, test, num_cat, cor_summary, num_genes) {
+  train_df <- train[1:3]
+  test_df <- test[1:3]
+  
+  #cycle through top genes from correlation summary and scale
+  for (i in seq(1, num_genes)) {
+    gene <- paste("X", cor_summary$index[i], sep="")
+    gene_index <- cor_summary$index[i]
+    
+    col <- gene_index+3
+    
+    test_df[,gene] <- (test[,col]- mean(train[,col])) / sd(train[,col])
+    train_df[,gene] <- scale(train[,col])
+  }
+  
+  write.csv(train_df, file = paste("data/processed/cor_", num_cat, "_train.csv", sep=""))
+  write.csv(test_df, file = paste("data/processed/cor_", num_cat, "_test.csv", sep=""))
+  return (test_df)
+}
+
+org_highest_corr_var(num_train, num_test, "num", cor_summary, 100)
+org_highest_corr_var(cat_train, cat_test, "cat", cor_summary, 100)
+```
+

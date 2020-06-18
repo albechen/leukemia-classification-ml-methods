@@ -1,6 +1,8 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "Untitled"
+author: "Albert Chen"
+date: "6/16/2020"
+output: pdf_document
 ---
 
 ```{r}
@@ -10,16 +12,19 @@ library(GGally)
 ## Functions
 
 ```{r}
+# pca summary using only training data
 pca_summary_training_data <- function(type) {
+  #import training data
   train <- read.csv(paste("data/interim/", type, "_train.csv", sep=''), row.names = 1)
   test <- read.csv(paste("data/interim/", type, "_test.csv", sep=''), row.names = 1)
   
+  #training data train and test split
   trainy <- train[1:3]
   trainx <- train[4:ncol(train)]
-  
   testy <- test[1:3]
   testx <- test[4:ncol(test)]
   
+  #if type of cat or num then split with only centering vs. sd needed
   if (type == "cat") {
     for(col in seq(1, ncol(trainx))){
       testx[,col] <- (testx[,col] - mean(trainx[,col]))
@@ -33,6 +38,7 @@ pca_summary_training_data <- function(type) {
     }
   }
   
+  #preform pca using only training data
   pca <- prcomp(trainx, scale=FALSE, center=FALSE)
   
   return(pca)
@@ -40,15 +46,17 @@ pca_summary_training_data <- function(type) {
 
 #import x_y data for both
 scale_pca_train_test_data <- function(type) {
+  #import training data
   train <- read.csv(paste("data/interim/", type, "_train.csv", sep=''), row.names = 1)
   test <- read.csv(paste("data/interim/", type, "_test.csv", sep=''), row.names = 1)
   
+  #training data train and test split
   trainy <- train[1:3]
   trainx <- train[4:ncol(train)]
-  
   testy <- test[1:3]
   testx <- test[4:ncol(test)]
   
+  #if type of cat or num then split with only centering vs. sd needed
   if (type == "cat") {
     for(col in seq(1, ncol(trainx))){
       testx[,col] <- (testx[,col] - mean(trainx[,col]))
@@ -62,13 +70,16 @@ scale_pca_train_test_data <- function(type) {
     }
   }
   
+  #preform pca using only training data
   pca <- prcomp(trainx, scale=FALSE, center=FALSE)
   
+  #apply pca to training data x - apply pca rotation using matrix multiplication to test data
   train_pca <- cbind(trainy, pca$x)
   test_pca <- cbind(testy, as.data.frame(as.matrix(testx) %*% pca$rotation))
   
-  write.csv(train_pca, paste("data/processed/", type, "_train.csv", sep=''))
-  write.csv(test_pca, paste("data/processed/", type, "_test.csv", sep=''))
+  #export csv
+  write.csv(train_pca, paste("data/processed/pca_", type, "_train.csv", sep=''))
+  write.csv(test_pca, paste("data/processed/pca_", type, "_test.csv", sep=''))
   
   return(list(train_pca, test_pca))
 }
@@ -77,6 +88,7 @@ scale_pca_train_test_data <- function(type) {
 ## Numerical Data PCA
 
 ```{r}
+#preform pca from numerical data
 pca <- pca_summary_training_data("num")
 num_summary <- scale_pca_train_test_data("num")
 train_pca <- as.data.frame(num_summary[1])
@@ -97,66 +109,63 @@ names(pca_summary)[1] <- "index"
 pca_summary$var <- summary(pca)$importance[2,]
 pca_summary$cum_var <- summary(pca)$importance[3,]
 
-ggplot(data=pca_summary, aes(x=index, y=var)) + geom_line() + geom_point()
-
-ggplot(data=pca_summary, aes(x=index, y=cum_var)) + geom_line()+ geom_point()
+ggplot(data=pca_summary, aes(x=index, y=var)) + 
+  geom_line() + 
+  geom_point() +
+  xlab("Index") + 
+  ylab("Percent Variance") +
+  ggtitle("Percent Variance Captured in Components - Numerical Data")
+ggsave(path = "images/reduction/",
+     filename = "pca_num_var.png",
+     dpi = 300, 
+     width = 8,
+     height = 5,
+     units = "in"
+)
+ 
+ggplot(data=pca_summary, aes(x=index, y=cum_var)) + 
+  geom_line() + 
+  geom_point() +
+  xlab("Index") + 
+  ylab("Cumulative Percent Variance") +
+  ggtitle("Cumulative Percent Variance Captured in Components")
 ```
-
 
 ```{r}
 #check correlations bewtween class and pca values
-ggpairs(data=train_pca, columns = 4:9, ggplot2::aes(colour=cancer), progress = F)
+cor_plot <- ggpairs(data=train_pca, columns = 4:9, ggplot2::aes(colour=cancer), ggplot2::ggtitle("First 6 Components Comparing Class Separation - Train Numerical Data"), progress = F)
+ggsave(path = "images/reduction/",
+     filename = "pca_train_num.png",
+     plot = cor_plot,
+     dpi = 300, 
+     width = 8,
+     height = 5,
+     units = "in"
+)
+cor_plot
 ```
 
 ```{r}
 #check correlations bewtween class and pca values
-ggpairs(data=test_pca, columns = 4:9, ggplot2::aes(colour=cancer), progress = F)
+cor_plot <- ggpairs(data=test_pca, columns = 4:9, ggplot2::aes(colour=cancer), ggplot2::ggtitle("First 6 Components Comparing Class Separation - Test Numerical Data"), progress = F)
+ggsave(path = "images/reduction/",
+     filename = "pca_test_num.png",
+     plot = cor_plot,
+     dpi = 300, 
+     width = 8,
+     height = 5,
+     units = "in"
+)
+cor_plot
 ```
-
 
 ## Catagorical Data PCA
 
 ```{r}
-type <- "cat"
-train <- read.csv(paste("data/interim/", type, "_train.csv", sep=''), row.names = 1)
-test <- read.csv(paste("data/interim/", type, "_test.csv", sep=''), row.names = 1)
-
-trainy <- train[1:3]
-trainx <- train[4:ncol(train)]
-
-testy <- test[1:3]
-testx <- test[4:ncol(test)]
-
-if (type == "cat") {
-  for(col in seq(1, ncol(trainx))){
-    testx[,col] <- (testx[,col] - mean(trainx[,col]))
-    trainx[,col] <- (trainx[,col] - mean(trainx[,col]))
-  }
-}
-if (type == "num") {
-  for(col in seq(1, ncol(trainx))){
-    testx[,col] <- (testx[,col] - mean(trainx[,col]))/ sd(trainx[,col])
-    trainx[,col] <- (trainx[,col] - mean(trainx[,col]))/ sd(trainx[,col])
-  }
-}
-
-pca <- prcomp(trainx, scale=FALSE, center=FALSE)
-
-train_pca <- cbind(trainy, pca$x)
-test_pca <- cbind(testy, as.data.frame(as.matrix(testx) %*% pca$rotation))
-
-write.csv(train_pca, paste("data/processed/", type, "_train.csv", sep=''))
-write.csv(test_pca, paste("data/processed/", type, "_test.csv", sep=''))
-  
-```
-
-
-
-```{r}
 pca <- pca_summary_training_data("cat")
 cat_summary <- scale_pca_train_test_data("cat")
-train_pca <- as.data.frame(num_summary[1])
-test_pca <- as.data.frame(num_summary[2])
+train_pca <- as.data.frame(cat_summary[1])
+test_pca <- as.data.frame(cat_summary[2])
 ```
 
 
@@ -173,18 +182,53 @@ names(pca_summary)[1] <- "index"
 pca_summary$var <- summary(pca)$importance[2,]
 pca_summary$cum_var <- summary(pca)$importance[3,]
 
-ggplot(data=pca_summary, aes(x=index, y=var)) + geom_line() + geom_point()
-
-ggplot(data=pca_summary, aes(x=index, y=cum_var)) + geom_line()+ geom_point()
+ggplot(data=pca_summary, aes(x=index, y=var)) + 
+  geom_line() + 
+  geom_point() +
+  xlab("Index") + 
+  ylab("Percent Variance") +
+  ggtitle("Percent Variance Captured in Components - Categorical Data")
+ggsave(path = "images/reduction/",
+     filename = "pca_cat_var.png",
+     dpi = 300, 
+     width = 8,
+     height = 5,
+     units = "in"
+)
+ 
+ggplot(data=pca_summary, aes(x=index, y=cum_var)) + 
+  geom_line() + 
+  geom_point() +
+  xlab("Index") + 
+  ylab("Cumulative Percent Variance") +
+  ggtitle("Cumulative Percent Variance Captured in Components - Categorical Data")
 ```
 
 
 ```{r}
 #check correlations bewtween class and pca values
-ggpairs(data=train_pca, columns = 4:9, ggplot2::aes(colour=cancer), progress = F)
+cor_plot <- ggpairs(data=train_pca, columns = 4:9, ggplot2::aes(colour=cancer), ggplot2::ggtitle("First 6 Components Comparing Class Separation - Train Categorical Data"), progress = F)
+ggsave(path = "images/reduction/",
+     filename = "pca_train_cat.png",
+     plot = cor_plot,
+     dpi = 300, 
+     width = 8,
+     height = 5,
+     units = "in"
+)
+cor_plot
 ```
 
 ```{r}
 #check correlations bewtween class and pca values
-ggpairs(data=test_pca, columns = 4:9, ggplot2::aes(colour=cancer), progress = F)
+cor_plot <- ggpairs(data=test_pca, columns = 4:9, ggplot2::aes(colour=cancer), ggplot2::ggtitle("First 6 Components Comparing Class Separation - Test Categorical Data"),progress = F)
+ggsave(path = "images/reduction/",
+     filename = "pca_test_cat.png",
+     plot = cor_plot,
+     dpi = 300, 
+     width = 8,
+     height = 5,
+     units = "in"
+)
+cor_plot
 ```
