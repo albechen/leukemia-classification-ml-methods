@@ -1,6 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
-Notebook inflated linguist values
 
-*.RMD linguist-documentation
+*.Rmd linguist-documentation
