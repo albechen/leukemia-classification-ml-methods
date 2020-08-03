@@ -2,4 +2,4 @@
 * text=auto
 
 
-*.Rmd linguist-documentation
+*.* linguist-language=R
